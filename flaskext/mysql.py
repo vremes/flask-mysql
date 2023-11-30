@@ -4,7 +4,15 @@ import pymysql
 try:
     from flask import _app_ctx_stack as _ctx_stack
 except ImportError:
-    from flask import _request_ctx_stack as _ctx_stack
+    try:
+        from flask import _request_ctx_stack as _ctx_stack
+    except ImportError:
+        from flask import g as _ctx_stack
+
+def _get_ctx():
+    if hasattr(_ctx_stack, "top"):
+        return _ctx_stack.top
+    return _ctx_stack
 
 class MySQL(object):
     def __init__(self, app=None, prefix="mysql",  **connect_args):
@@ -65,7 +73,7 @@ class MySQL(object):
         return pymysql.connect(**self.connect_args)
 
     def teardown_request(self, exception):
-        ctx = _ctx_stack.top
+        ctx = _get_ctx()
         if hasattr(ctx, "mysql_dbs"):
             try:
                 if self.prefix in ctx.mysql_dbs and ctx.mysql_dbs[self.prefix].open:
@@ -74,7 +82,7 @@ class MySQL(object):
                 pass
 
     def get_db(self):
-        ctx = _ctx_stack.top
+        ctx = _get_ctx()
         if ctx is not None:
             if not hasattr(ctx, "mysql_dbs"):
                 ctx.mysql_dbs = dict()
